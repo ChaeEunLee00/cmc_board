@@ -1,3 +1,16 @@
 spring:
   application:
-    name: cmc board project
+    name: board
+  datasource:
+    url: jdbc:h2:mem:test
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  jpa:
+    hibernate:
+      ddl-auto: update   # (create, update, none 등 선택 가능)
+    show-sql: true       # 콘솔에 SQL 출력
