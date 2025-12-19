@@ -48,32 +48,14 @@ public class PostService {
 
         postRepository.save(post);
 
-        // 응답값 생성
-        PostResponse response = new PostResponse();
-        response.setPostId(post.getPostId());
-        response.setTitle(post.getTitle());
-        response.setContent(post.getContent());
-        response.setCreatedAt(post.getCreatedAt());
-        response.setUpdatedAt(post.getUpdatedAt());
-        response.setUser(post.getUser().getNickname());
-        response.setCategory(post.getCategory().getName());
-        return response;
+        return new PostResponse(post);
     }
 
     public PostResponse findPost(Long postId){
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new BusinessLogicException(ExceptionCode.POST_NOT_FOUND));
 
-        // 응답값 생성
-        PostResponse response = new PostResponse();
-        response.setPostId(post.getPostId());
-        response.setTitle(post.getTitle());
-        response.setContent(post.getContent());
-        response.setCreatedAt(post.getCreatedAt());
-        response.setUpdatedAt(post.getUpdatedAt());
-        response.setUser(post.getUser().getNickname());
-        response.setCategory(post.getCategory().getName());
-        return response;
+        return new PostResponse(post);
     }
 
     public List<PostResponse> findPosts(int page, int size) {
@@ -83,17 +65,7 @@ public class PostService {
 
 
         // 응답값 생성
-        return postPage.map(post -> {
-            PostResponse response = new PostResponse();
-            response.setPostId(post.getPostId());
-            response.setTitle(post.getTitle());
-            response.setContent(post.getContent());
-            response.setCreatedAt(post.getCreatedAt());
-            response.setUpdatedAt(post.getUpdatedAt());
-            response.setUser(post.getUser().getNickname());
-            response.setCategory(post.getCategory().getName());
-            return response;
-        }).getContent();
+        return postPage.map(post -> new PostResponse(post)).getContent();
     }
 
     public PostResponse updatePost(Long postId, PostRequest request, String email){
@@ -118,16 +90,7 @@ public class PostService {
 
         postRepository.save(post);
 
-        // 응답값 생성
-        PostResponse response = new PostResponse();
-        response.setPostId(post.getPostId());
-        response.setTitle(post.getTitle());
-        response.setContent(post.getContent());
-        response.setCreatedAt(post.getCreatedAt());
-        response.setUpdatedAt(post.getUpdatedAt());
-        response.setUser(post.getUser().getNickname());
-        response.setCategory(post.getCategory().getName());
-        return response;
+        return new PostResponse(post);
     }
 
     public void removePost(Long postId, String email){

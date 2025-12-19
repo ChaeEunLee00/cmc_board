@@ -26,4 +26,14 @@ public class PostResponse {
     private String user;
 
     private String category;
+
+    public PostResponse(Post post){
+        this.postId = post.getPostId();
+        this.title = post.getTitle();
+        this.content = post.getContent();
+        this.createdAt = post.getCreatedAt();
+        this.updatedAt = post.getUpdatedAt();
+        this.user = post.getUser().getNickname();
+        this.category = post.getCategory().getName();
+    }
 }

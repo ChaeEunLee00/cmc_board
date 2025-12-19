@@ -26,7 +26,7 @@ public class CategoryController {
 
     // 카테고리 삭제
     @DeleteMapping("{category-id}")
-    public ResponseEntity getCategories(@PathVariable("category-id") Long categoryId){
+    public ResponseEntity deleteCategories(@PathVariable("category-id") Long categoryId){
         categoryService.removeCategory(categoryId);
         return ResponseEntity.ok("카테고리가 삭제되었습니다.");
     }

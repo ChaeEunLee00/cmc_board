@@ -15,6 +15,11 @@ public class CategoryService {
     private final PostRepository postRepository;
 
     public Category createCategory(CategoryRequest request){
+        // 카테고리 이름 중복 확인
+        if(categoryRepository.existsByName(request.getName())){
+            throw new BusinessLogicException(ExceptionCode.CATEGORY_DUPLICATION);
+        }
+
         Category category = new Category();
         category.setName(request.getName());
 

@@ -3,8 +3,11 @@ package com.cmc.board.bookmark;
 import com.cmc.board.post.Post;
 import com.cmc.board.user.User;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
 @Entity
+@Getter @Setter
 @Table(name = "bookmarks")
 public class Bookmark {
 
