@@ -5,6 +5,7 @@ import lombok.Getter;
 public enum ExceptionCode {
     USER_NOT_FOUND(404, "User not found"),
     POST_NOT_FOUND(404, "Post not found"),
+    COMMENT_NOT_FOUND(404, "Comment not found"),
     CATEGORY_NOT_FOUND(404, "Category not found"),
 
     EMAIL_DUPLICATION(409, "Email already exists"),   // 이메일 중복
