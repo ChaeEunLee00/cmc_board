@@ -32,6 +32,6 @@ public class Comment {
     private Post post;
 
     @ManyToOne
-    @JoinColumn(name = "commentId")
-    private Comment comment;
+    @JoinColumn(name = "parentId")
+    private Comment parent;
 }

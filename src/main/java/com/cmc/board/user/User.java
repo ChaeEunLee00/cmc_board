@@ -1,10 +1,13 @@
 package com.cmc.board.user;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 
 @Entity
+@Getter @Setter
 @Table(name = "users")
 public class User {
 
@@ -22,10 +25,7 @@ public class User {
     private String nickname;
 
     @Column
-    private String imageUrl;
-
-    @Column
-    private String userRole;
+    private UserRole userRole;
 
     @Column
     private LocalDateTime createdAt;
