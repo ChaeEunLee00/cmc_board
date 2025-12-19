@@ -1,10 +1,14 @@
 package com.cmc.board.user;
 
+import com.cmc.board.bookmark.Bookmark;
+import com.cmc.board.post.Post;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Getter @Setter
@@ -29,4 +33,10 @@ public class User {
 
     @Column
     private LocalDateTime createdAt;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.REMOVE) // 유저 삭제 시 게시글도 삭제
+    private List<Post> posts = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.REMOVE) // 유저 삭제 시 북마크도 삭제
+    private List<Bookmark> bookmarks = new ArrayList<>();
 }

@@ -4,6 +4,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
@@ -19,13 +21,13 @@ public class UserController { // 로그인, 인가, 로그아웃은 spring secur
     @PostMapping("/signup")
     public ResponseEntity signup(@Valid @RequestBody UserRequest request) {
         userService.createUser(request);
-        return new ResponseEntity<>("회원가입이 완료되었습니다.", HttpStatus.OK);
+        return ResponseEntity.ok("회원가입이 완료되었습니다.");
     }
 
     // 회원 탈퇴
     @DeleteMapping
-    public ResponseEntity deleteUser(Principal principal) {
-        userService.deleteUser(principal.getName());
+    public ResponseEntity deleteUser(@AuthenticationPrincipal UserDetails userDetails) {
+        userService.deleteUser(userDetails.getUsername());
         return ResponseEntity.ok("회원 탈퇴가 완료되었습니다.");
     }
 }

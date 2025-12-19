@@ -4,8 +4,15 @@ import lombok.Getter;
 
 public enum ExceptionCode {
     USER_NOT_FOUND(404, "User not found"),
+    POST_NOT_FOUND(404, "Post not found"),
+    CATEGORY_NOT_FOUND(404, "Category not found"),
+
     EMAIL_DUPLICATION(409, "Email already exists"),   // 이메일 중복
-    NICKNAME_DUPLICATION(409, "Nickname already exists"); // 닉네임 중복
+    NICKNAME_DUPLICATION(409, "Nickname already exists"), // 닉네임 중복
+
+    INPUT_CANNOT_BE_NULL(400, "Input value cannot be null"),
+
+    NOT_AUTHORIZED(403, "Not authorized to access this resource");
 
     @Getter
     private int status;
