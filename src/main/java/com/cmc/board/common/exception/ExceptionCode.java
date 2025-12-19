@@ -12,6 +12,7 @@ public enum ExceptionCode {
     NICKNAME_DUPLICATION(409, "Nickname already exists"), // 닉네임 중복
 
     INPUT_CANNOT_BE_NULL(400, "Input value cannot be null"),
+    CATEGORY_CANNOT_BE_DELETED(400, "Category cannot be deleted"),
 
     NOT_AUTHORIZED(403, "Not authorized to access this resource");
 
