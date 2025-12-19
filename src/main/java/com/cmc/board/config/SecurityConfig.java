@@ -24,6 +24,7 @@ public class SecurityConfig {
                 .headers(headersConfigurer -> headersConfigurer.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin)) // For H2 DB
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/h2-console/**", "/users/signup", "/login").permitAll() // 가입, 로그인은 허용
+                        .requestMatchers("/swagger-ui/**", "/api-docs/**", "/swagger-ui.html").hasRole("ADMIN")
                         .anyRequest().authenticated() // 나머지는 로그인 필수
                 )
                 .formLogin(form -> form
