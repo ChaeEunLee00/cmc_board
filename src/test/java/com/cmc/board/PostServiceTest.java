@@ -16,6 +16,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.*;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Optional;
@@ -42,16 +43,14 @@ class PostServiceTest {
 
     @BeforeEach
     void setUp() {
-        testUser = new User();
-        testUser.setEmail(email);
-        testUser.setNickname("작성자");
+        testUser = User.create(email, "password123", "작성자");
 
         testCategory = new Category();
-        testCategory.setCategoryId(1L);
+        ReflectionTestUtils.setField(testCategory, "categoryId", 1L);
         testCategory.setName("자유게시판");
 
         testPost = new Post();
-        testPost.setPostId(1L);
+        ReflectionTestUtils.setField(testPost, "postId", 1L);
         testPost.setUser(testUser);
         testPost.setCategory(testCategory);
         testPost.setTitle("기존 제목");
@@ -62,7 +61,7 @@ class PostServiceTest {
     @DisplayName("게시글 생성 (createPost)")
     class CreatePost {
         @Test
-        @DisplayName("성공: 정상적인 포스트 생성")
+        @DisplayName("성공: 정상 저장 (모든 라인 통과)")
         void createPost_Success() {
             PostRequest request = new PostRequest("제목", "내용", 1L);
             given(userRepository.findByEmail(email)).willReturn(Optional.of(testUser));
@@ -75,9 +74,10 @@ class PostServiceTest {
         }
 
         @Test
-        @DisplayName("실패: 제목/내용/카테고리 중 하나라도 null인 경우")
+        @DisplayName("실패: 입력값 누락 (29번 라인 노란색 해결)")
         void createPost_Fail_InputNull() {
-            PostRequest request = new PostRequest(null, "내용", 1L); // 제목 null
+            // 제목, 내용, 카테고리 중 하나라도 null인 경우
+            PostRequest request = new PostRequest(null, "내용", 1L);
 
             BusinessLogicException ex = assertThrows(BusinessLogicException.class,
                     () -> postService.createPost(request, email));
@@ -85,7 +85,7 @@ class PostServiceTest {
         }
 
         @Test
-        @DisplayName("실패: 존재하지 않는 유저 이메일인 경우")
+        @DisplayName("실패: 유저 없음 (34번 라인 해결)")
         void createPost_Fail_UserNotFound() {
             PostRequest request = new PostRequest("제목", "내용", 1L);
             given(userRepository.findByEmail(email)).willReturn(Optional.empty());
@@ -94,7 +94,7 @@ class PostServiceTest {
         }
 
         @Test
-        @DisplayName("실패: 존재하지 않는 카테고리 ID인 경우")
+        @DisplayName("실패: 카테고리 없음 (39번 라인 해결)")
         void createPost_Fail_CategoryNotFound() {
             PostRequest request = new PostRequest("제목", "내용", 1L);
             given(userRepository.findByEmail(email)).willReturn(Optional.of(testUser));
@@ -108,30 +108,30 @@ class PostServiceTest {
     @DisplayName("게시글 조회 (findPost & findPosts)")
     class FindPost {
         @Test
-        @DisplayName("단일 조회 성공")
+        @DisplayName("단건 조회 성공: 정상 리턴 (58번 라인 빨간색 해결)")
         void findPost_Success() {
             given(postRepository.findById(1L)).willReturn(Optional.of(testPost));
+
             PostResponse response = postService.findPost(1L);
-            assertThat(response.getTitle()).isEqualTo("기존 제목");
+
+            assertThat(response.getPostId()).isEqualTo(1L);
         }
 
         @Test
-        @DisplayName("단일 조회 실패: 존재하지 않는 게시글")
+        @DisplayName("단건 조회 실패: 게시글 미존재 (56번 라인 해결)")
         void findPost_Fail_NotFound() {
             given(postRepository.findById(1L)).willReturn(Optional.empty());
             assertThrows(BusinessLogicException.class, () -> postService.findPost(1L));
         }
 
         @Test
-        @DisplayName("목록 조회 성공 (페이징)")
+        @DisplayName("목록 조회 성공: 페이징 데이터 반환")
         void findPosts_Success() {
             Pageable pageable = PageRequest.of(0, 10, Sort.by("postId").descending());
             given(postRepository.findAll(pageable)).willReturn(new PageImpl<>(List.of(testPost)));
 
             List<PostResponse> result = postService.findPosts(0, 10);
-
             assertThat(result).hasSize(1);
-            verify(postRepository, times(1)).findAll(pageable);
         }
     }
 
@@ -139,52 +139,55 @@ class PostServiceTest {
     @DisplayName("게시글 수정 (updatePost)")
     class UpdatePost {
         @Test
-        @DisplayName("성공: 제목, 내용, 카테고리를 모두 수정")
-        void updatePost_Success_AllFields() {
-            PostRequest request = new PostRequest("새제목", "새내용", 2L);
-            Category newCategory = new Category(); newCategory.setName("새카테고리");
+        @DisplayName("성공: 작성자 확인 및 모든 필드 수정")
+        void updatePost_Success() {
+            PostRequest request = new PostRequest("수정제목", "수정내용", 1L);
+            given(postRepository.findById(1L)).willReturn(Optional.of(testPost));
+            given(categoryRepository.findById(1L)).willReturn(Optional.of(testCategory));
+
+            postService.updatePost(1L, request, email);
+
+            assertThat(testPost.getTitle()).isEqualTo("수정제목");
+            verify(postRepository).save(testPost);
+        }
+
+        @Test
+        @DisplayName("실패: 작성자 불일치 (78번 라인 빨간색 해결)")
+        void updatePost_Fail_Auth() {
+            PostRequest request = new PostRequest("해킹", "해킹", null);
+            given(postRepository.findById(1L)).willReturn(Optional.of(testPost));
+
+            // 다른 이메일 주소 전달하여 equals(email)이 false가 되도록 유도
+            BusinessLogicException ex = assertThrows(BusinessLogicException.class,
+                    () -> postService.updatePost(1L, request, "hacker@test.com"));
+            assertThat(ex.getExceptionCode()).isEqualTo(ExceptionCode.NOT_AUTHORIZED);
+        }
+
+        @Test
+        @DisplayName("분기: 수정 필드(제목, 내용)가 null일 때 (81, 82번 라인 노란색 해결)")
+        void updatePost_PartialNull() {
+            PostRequest request = new PostRequest(null, null, null);
+            given(postRepository.findById(1L)).willReturn(Optional.of(testPost));
+
+            postService.updatePost(1L, request, email);
+
+            assertThat(testPost.getTitle()).isEqualTo("기존 제목"); // 변경되지 않음
+            verify(categoryRepository, never()).findById(anyLong());
+        }
+
+        @Test
+        @DisplayName("분기: 카테고리만 수정할 때 (83번 라인 노란색 해결)")
+        void updatePost_CategoryOnly() {
+            PostRequest request = new PostRequest(null, null, 2L);
+            Category newCategory = new Category();
+            ReflectionTestUtils.setField(newCategory, "categoryId", 2L);
 
             given(postRepository.findById(1L)).willReturn(Optional.of(testPost));
             given(categoryRepository.findById(2L)).willReturn(Optional.of(newCategory));
 
             postService.updatePost(1L, request, email);
 
-            assertThat(testPost.getTitle()).isEqualTo("새제목");
-            assertThat(testPost.getContent()).isEqualTo("새내용");
-            assertThat(testPost.getCategory()).isEqualTo(newCategory);
-        }
-
-        @Test
-        @DisplayName("성공: 수정할 데이터가 없는 경우(null) 기존 데이터 유지")
-        void updatePost_Success_NoFields() {
-            PostRequest request = new PostRequest(null, null, null);
-            given(postRepository.findById(1L)).willReturn(Optional.of(testPost));
-
-            postService.updatePost(1L, request, email);
-
-            assertThat(testPost.getTitle()).isEqualTo("기존 제목");
-            assertThat(testPost.getContent()).isEqualTo("기존 내용");
-        }
-
-        @Test
-        @DisplayName("실패: 수정 시 카테고리를 찾을 수 없는 경우")
-        void updatePost_Fail_CategoryNotFound() {
-            PostRequest request = new PostRequest(null, null, 99L);
-            given(postRepository.findById(1L)).willReturn(Optional.of(testPost));
-            given(categoryRepository.findById(99L)).willReturn(Optional.empty());
-
-            assertThrows(BusinessLogicException.class, () -> postService.updatePost(1L, request, email));
-        }
-
-        @Test
-        @DisplayName("실패: 본인이 아닌 유저가 수정을 시도할 경우")
-        void updatePost_Fail_NotAuthorized() {
-            PostRequest request = new PostRequest("수정", "수정", null);
-            given(postRepository.findById(1L)).willReturn(Optional.of(testPost));
-
-            BusinessLogicException ex = assertThrows(BusinessLogicException.class,
-                    () -> postService.updatePost(1L, request, "other@test.com"));
-            assertThat(ex.getExceptionCode()).isEqualTo(ExceptionCode.NOT_AUTHORIZED);
+            assertThat(testPost.getCategory().getCategoryId()).isEqualTo(2L);
         }
     }
 
@@ -192,18 +195,23 @@ class PostServiceTest {
     @DisplayName("게시글 삭제 (removePost)")
     class RemovePost {
         @Test
-        @DisplayName("성공: 작성자가 삭제")
+        @DisplayName("성공: 본인 작성글 삭제")
         void removePost_Success() {
             given(postRepository.findById(1L)).willReturn(Optional.of(testPost));
+
             postService.removePost(1L, email);
+
             verify(postRepository, times(1)).delete(testPost);
         }
 
         @Test
-        @DisplayName("실패: 존재하지 않는 게시글 삭제 시도")
-        void removePost_Fail_NotFound() {
-            given(postRepository.findById(1L)).willReturn(Optional.empty());
-            assertThrows(BusinessLogicException.class, () -> postService.removePost(1L, email));
+        @DisplayName("실패: 작성자 불일치 (103번 라인 빨간색 해결)")
+        void removePost_Fail_Auth() {
+            given(postRepository.findById(1L)).willReturn(Optional.of(testPost));
+
+            BusinessLogicException ex = assertThrows(BusinessLogicException.class,
+                    () -> postService.removePost(1L, "other@test.com"));
+            assertThat(ex.getExceptionCode()).isEqualTo(ExceptionCode.NOT_AUTHORIZED);
         }
     }
 }

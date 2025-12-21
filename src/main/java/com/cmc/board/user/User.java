@@ -1,17 +1,13 @@
 package com.cmc.board.user;
 
-import com.cmc.board.bookmark.Bookmark;
-import com.cmc.board.post.Post;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 @Entity
-@Getter @Setter
+@Getter
+@ NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "users")
 public class User {
 
@@ -19,25 +15,46 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long userId;
 
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     private String email;
 
     @Column(nullable = false)
     private String password;
 
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     private String nickname;
 
     @Enumerated(EnumType.STRING)
-    @Column
+    @Column(nullable = false)
     private UserRole userRole;
 
-    @Column
     private LocalDateTime createdAt;
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.REMOVE) // 유저 삭제 시 게시글도 삭제
-    private List<Post> posts = new ArrayList<>();
+    @Builder
+    private User(String email, String password, String nickname, UserRole userRole) {
+        this.email = email;
+        this.password = password;
+        this.nickname = nickname;
+        this.userRole = userRole;
+        this.createdAt = LocalDateTime.now();
+    }
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.REMOVE) // 유저 삭제 시 북마크도 삭제
-    private List<Bookmark> bookmarks = new ArrayList<>();
+    // 정적 팩토리 메서드: 도메인 객체 생성의 책임을 엔티티가 가짐
+    public static User create(String email, String encodedPassword, String nickname) {
+        return User.builder()
+                .email(email)
+                .password(encodedPassword)
+                .nickname(nickname)
+                .userRole(UserRole.USER)
+                .build();
+    }
+
+    public static User createAdmin(String email, String encodedPassword, String nickname) {
+        return User.builder()
+                .email(email)
+                .password(encodedPassword)
+                .nickname(nickname)
+                .userRole(UserRole.ADMIN) // 관리자 전용
+                .build();
+    }
 }

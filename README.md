@@ -1,6 +1,6 @@
-# cmc_board
 ### 테스트 코드 통과 스크린샷
-<img width="705" height="587" alt="Image" src="https://github.com/user-attachments/assets/6ba35556-2eb1-4659-a50e-bac5e0a2baff" />
+<img width="590" height="575" alt="Image" src="https://github.com/user-attachments/assets/39759b59-ce63-4e12-abbd-876b50f20ede" />
 
 ### 테스트 커버리지 리포트 스크린샷
-<img width="651" height="335" alt="Image" src="https://github.com/user-attachments/assets/0e402d28-29b1-4d25-811e-8cb2291606a4" />
+
+<img width="579" height="283" alt="Image" src="https://github.com/user-attachments/assets/3a7d0d6d-e03d-4adb-87f5-c60e37cdf5fa" />

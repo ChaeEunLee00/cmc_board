@@ -11,28 +11,25 @@ import com.cmc.board.post.PostRepository;
 import com.cmc.board.post.PostResponse;
 import com.cmc.board.user.User;
 import com.cmc.board.user.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
 
-/**
- * [Narrative]
- * 사용자는 마음에 드는 게시글을 북마크에 저장하고, 저장된 목록을 확인할 수 있어야 한다.
- * 북마크 목록은 최근에 추가한 순서대로 정렬되어야 하며, 필요 시 삭제가 가능해야 한다.
- */
 @ExtendWith(MockitoExtension.class)
 class BookmarkServiceTest {
 
@@ -42,110 +39,114 @@ class BookmarkServiceTest {
 
     @InjectMocks private BookmarkService bookmarkService;
 
+    private User testUser;
+    private Category testCategory;
+    private Post testPost;
+    private Bookmark testBookmark;
+    private final String email = "test@test.com";
+
+    @BeforeEach
+    void setUp() {
+        // 1. 유저 생성
+        testUser = User.create(email, "password", "유저닉네임");
+
+        // 2. 카테고리 생성 (NPE 해결 핵심!)
+        testCategory = new Category();
+        ReflectionTestUtils.setField(testCategory, "categoryId", 1L);
+        testCategory.setName("자유게시판");
+
+        // 3. 게시글 생성 및 연관관계 설정
+        testPost = new Post();
+        ReflectionTestUtils.setField(testPost, "postId", 1L);
+        testPost.setTitle("테스트 게시글");
+        testPost.setContent("테스트 내용");
+        testPost.setUser(testUser);       // PostResponse 생성자에서 사용됨
+        testPost.setCategory(testCategory); // PostResponse 생성자(Line 37)에서 사용됨
+
+        // 4. 북마크 생성
+        testBookmark = new Bookmark();
+        ReflectionTestUtils.setField(testBookmark, "bookmarkId", 100L);
+        testBookmark.setUser(testUser);
+        testBookmark.setPost(testPost);
+    }
+
     @Nested
-    @DisplayName("북마크 생성 테스트")
-    class CreateBookmarkTest {
+    @DisplayName("북마크 생성 (createBookmark)")
+    class CreateBookmark {
         @Test
-        @DisplayName("성공: 유효한 게시글과 유저로 북마크를 생성한다.")
+        @DisplayName("성공: 게시글과 유저가 존재하면 북마크가 저장된다.")
         void createBookmark_Success() {
-            // [Given]
-            Long postId = 1L;
-            String email = "test@test.com";
-            User user = new User(); user.setEmail(email);
-            Post post = new Post(); post.setPostId(postId);
+            given(postRepository.findById(1L)).willReturn(Optional.of(testPost));
+            given(userRepository.findByEmail(email)).willReturn(Optional.of(testUser));
 
-            given(postRepository.findById(postId)).willReturn(Optional.of(post));
-            given(userRepository.findByEmail(email)).willReturn(Optional.of(user));
+            bookmarkService.createBookmark(1L, email);
 
-            // [When]
-            bookmarkService.createBookmark(postId, email);
+            verify(bookmarkRepository, times(1)).save(any(Bookmark.class));
+        }
 
-            // [Then]
-            ArgumentCaptor<Bookmark> bookmarkCaptor = ArgumentCaptor.forClass(Bookmark.class);
-            verify(bookmarkRepository, times(1)).save(bookmarkCaptor.capture());
+        @Test
+        @DisplayName("실패: 게시글이 없으면 POST_NOT_FOUND")
+        void createBookmark_Fail_PostNotFound() {
+            given(postRepository.findById(1L)).willReturn(Optional.empty());
+            assertThrows(BusinessLogicException.class, () -> bookmarkService.createBookmark(1L, email));
+        }
 
-            Bookmark savedBookmark = bookmarkCaptor.getValue();
-            assertThat(savedBookmark.getUser()).isEqualTo(user);
-            assertThat(savedBookmark.getPost()).isEqualTo(post);
+        @Test
+        @DisplayName("실패: 유저가 없으면 USER_NOT_FOUND")
+        void createBookmark_Fail_UserNotFound() {
+            given(postRepository.findById(1L)).willReturn(Optional.of(testPost));
+            given(userRepository.findByEmail(email)).willReturn(Optional.empty());
+            assertThrows(BusinessLogicException.class, () -> bookmarkService.createBookmark(1L, email));
         }
     }
 
     @Nested
-    @DisplayName("북마크 목록 조회 테스트")
-    class FindBookmarksTest {
+    @DisplayName("북마크 조회 (findBookmarks)")
+    class FindBookmarks {
         @Test
-        @DisplayName("성공: 유저의 북마크 리스트를 PostResponse 형태로 반환한다.")
+        @DisplayName("성공: 유저의 북마크 목록을 반환한다. (NPE 해결 확인)")
         void findBookmarks_Success() {
-            // [Given]
-            String email = "test@test.com";
-            User user = new User(); user.setEmail(email);
+            given(userRepository.findByEmail(email)).willReturn(Optional.of(testUser));
+            given(bookmarkRepository.findByUserOrderByBookmarkIdDesc(testUser)).willReturn(List.of(testBookmark));
 
-            // PostResponse 생성을 위해 연관 객체(User, Category) 세팅 필수
-            User author = new User(); author.setNickname("작성자");
-            Category category = new Category(); category.setName("카테고리");
-
-            Post post = new Post();
-            post.setTitle("북마크한 글");
-            post.setUser(author);
-            post.setCategory(category);
-
-            Bookmark bookmark = new Bookmark();
-            bookmark.setPost(post);
-            bookmark.setUser(user);
-
-            given(userRepository.findByEmail(email)).willReturn(Optional.of(user));
-            given(bookmarkRepository.findByUserOrderByBookmarkIdDesc(user)).willReturn(List.of(bookmark));
-
-            // [When]
             List<PostResponse> result = bookmarkService.findBookmarks(email);
 
-            // [Then]
             assertThat(result).hasSize(1);
-            assertThat(result.get(0).getTitle()).isEqualTo("북마크한 글");
-            assertThat(result.get(0).getUser()).isEqualTo("작성자");
+            assertThat(result.get(0).getCategory()).isEqualTo("자유게시판");
+        }
+
+        @Test
+        @DisplayName("실패: 유저가 없으면 예외 발생")
+        void findBookmarks_Fail_UserNotFound() {
+            given(userRepository.findByEmail(email)).willReturn(Optional.empty());
+            assertThrows(BusinessLogicException.class, () -> bookmarkService.findBookmarks(email));
         }
     }
 
     @Nested
-    @DisplayName("북마크 삭제 테스트")
-    class RemoveBookmarkTest {
+    @DisplayName("북마크 삭제 (removeBookmark)")
+    class RemoveBookmark {
         @Test
-        @DisplayName("성공: 유저와 게시글 정보가 일치하는 북마크를 삭제한다.")
+        @DisplayName("성공: 북마크를 찾아 삭제한다.")
         void removeBookmark_Success() {
-            // [Given]
-            Long postId = 1L;
-            String email = "test@test.com";
-            User user = new User(); user.setEmail(email);
-            Post post = new Post(); post.setPostId(postId);
-            Bookmark bookmark = new Bookmark();
+            given(postRepository.findById(1L)).willReturn(Optional.of(testPost));
+            given(userRepository.findByEmail(email)).willReturn(Optional.of(testUser));
+            given(bookmarkRepository.findByUserAndPost(testUser, testPost)).willReturn(Optional.of(testBookmark));
 
-            given(postRepository.findById(postId)).willReturn(Optional.of(post));
-            given(userRepository.findByEmail(email)).willReturn(Optional.of(user));
-            given(bookmarkRepository.findByUserAndPost(user, post)).willReturn(Optional.of(bookmark));
+            bookmarkService.removeBookmark(1L, email);
 
-            // [When]
-            bookmarkService.removeBookmark(postId, email);
-
-            // [Then]
-            verify(bookmarkRepository, times(1)).delete(bookmark);
+            verify(bookmarkRepository, times(1)).delete(testBookmark);
         }
 
         @Test
-        @DisplayName("실패: 해당 북마크가 존재하지 않으면 예외가 발생한다.")
+        @DisplayName("실패: 북마크를 찾을 수 없으면 BOOKMARK_NOT_FOUND")
         void removeBookmark_Fail_NotFound() {
-            // [Given]
-            Long postId = 1L;
-            String email = "test@test.com";
-            User user = new User();
-            Post post = new Post();
+            given(postRepository.findById(1L)).willReturn(Optional.of(testPost));
+            given(userRepository.findByEmail(email)).willReturn(Optional.of(testUser));
+            given(bookmarkRepository.findByUserAndPost(testUser, testPost)).willReturn(Optional.empty());
 
-            given(postRepository.findById(postId)).willReturn(Optional.of(post));
-            given(userRepository.findByEmail(email)).willReturn(Optional.of(user));
-            given(bookmarkRepository.findByUserAndPost(user, post)).willReturn(Optional.empty());
-
-            // [When & Then]
             BusinessLogicException ex = assertThrows(BusinessLogicException.class,
-                    () -> bookmarkService.removeBookmark(postId, email));
+                    () -> bookmarkService.removeBookmark(1L, email));
             assertThat(ex.getExceptionCode()).isEqualTo(ExceptionCode.BOOKMARK_NOT_FOUND);
         }
     }

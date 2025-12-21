@@ -2,14 +2,15 @@ package com.cmc.board.common.initializer;
 
 import com.cmc.board.user.User;
 import com.cmc.board.user.UserRepository;
-import com.cmc.board.user.UserRole;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class DataInitializer implements CommandLineRunner {
@@ -18,18 +19,24 @@ public class DataInitializer implements CommandLineRunner {
     private final PasswordEncoder passwordEncoder;
 
     @Override
-    public void run(String... args) throws Exception {
-        // 1. 이미 admin 계정이 있는지 확인
-        if (!userRepository.existsByEmail("admin@example.com")) {
-            User admin = new User();
-            admin.setEmail("admin@example.com");
-            admin.setPassword(passwordEncoder.encode("admin1234")); // 비밀번호 암호화
-            admin.setNickname("관리자");
-            admin.setUserRole(UserRole.ADMIN); // 앞서 설정한 Enum 사용
-            admin.setCreatedAt(LocalDateTime.now());
+    @Transactional // 데이터 저장을 위해 트랜잭션 보장
+    public void run(String... args) {
+        initAdmin();
+    }
 
-            userRepository.save(admin);
-            System.out.println("=== 관리자 계정이 생성되었습니다. (admin@example.com) ===");
+    private void initAdmin() {
+        String adminEmail = "admin@example.com";
+
+        if (userRepository.existsByEmail(adminEmail)) {
+            log.info("=== 관리자 계정이 이미 존재합니다. 생성을 건너뜁니다. ===");
+            return;
         }
+
+        // 엔티티 내부의 정적 팩토리 메서드 활용 (객체지향적 생성)
+        String encodedPassword = passwordEncoder.encode("admin1234");
+        User admin = User.createAdmin(adminEmail, encodedPassword, "관리자");
+
+        userRepository.save(admin);
+        log.info("=== 관리자 계정이 생성되었습니다. (ID: {}) ===", adminEmail);
     }
 }
