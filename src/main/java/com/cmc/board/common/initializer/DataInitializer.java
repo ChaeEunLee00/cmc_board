@@ -1,7 +1,7 @@
 package com.cmc.board.common.initializer;
 
-import com.cmc.board.user.User;
-import com.cmc.board.user.UserRepository;
+import com.cmc.board.user.domain.User;
+import com.cmc.board.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;

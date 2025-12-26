@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>게시글 목록</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-light">
+<div class="container py-5" style="max-width: 980px;">
+
+    <!-- 상단 타이틀 + 글 작성 -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="h4 mb-1"><i class="bi bi-card-list text-primary me-1"></i> 게시글 목록</h1>
+            <p class="text-muted small mb-0">카테고리별로 볼 수 있습니다.</p>
+        </div>
+
+        <a class="btn btn-primary" th:href="@{/posts/new}">
+            <i class="bi bi-plus-lg"></i> 글 작성
+        </a>
+    </div>
+
+    <!-- 플래시 메시지 -->
+    <div th:if="${message}" class="alert alert-success" th:text="${message}">msg</div>
+
+    <!-- 탭: 전체 글 / 내 북마크 -->
+    <ul class="nav nav-tabs mb-3" id="postTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active"
+                    id="tab-posts"
+                    data-bs-toggle="tab"
+                    data-bs-target="#pane-posts"
+                    type="button"
+                    role="tab"
+                    aria-controls="pane-posts"
+                    aria-selected="true">
+                전체 글
+            </button>
+        </li>
+
+        <li class="nav-item" role="presentation">
+            <button class="nav-link"
+                    id="tab-bookmarks"
+                    data-bs-toggle="tab"
+                    data-bs-target="#pane-bookmarks"
+                    type="button"
+                    role="tab"
+                    aria-controls="pane-bookmarks"
+                    aria-selected="false">
+                내 북마크
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+
+        <!-- =========================================================
+             ✅ 전체 글 탭 (Thymeleaf 렌더링)
+           ========================================================= -->
+        <div class="tab-pane fade show active" id="pane-posts" role="tabpanel" aria-labelledby="tab-posts">
+
+            <!-- 카테고리 필터 -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-body p-3">
+                    <div class="d-flex flex-wrap gap-2">
+
+                        <!-- 전체 -->
+                        <a class="btn btn-sm"
+                           th:classappend="${selectedCategoryName == null} ? 'btn-primary' : 'btn-outline-primary'"
+                           th:href="@{/posts}">
+                            전체
+                        </a>
+
+                        <!-- 카테고리별 -->
+                        <a class="btn btn-sm"
+                           th:each="c : ${categories}"
+                           th:text="${c.name}"
+                           th:classappend="${selectedCategoryName != null and selectedCategoryName == c.name} ? 'btn-primary' : 'btn-outline-primary'"
+                           th:href="@{/posts(categoryName=${c.name})}">
+                            카테고리
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ✅ 여기: 글 목록 테이블 (사라졌던 부분 복원) -->
+            <div class="card shadow-sm">
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                        <tr>
+                            <th class="px-3" style="width: 90px;">ID</th>
+                            <th>제목</th>
+                            <th style="width: 140px;">작성자</th>
+                            <th style="width: 160px;">카테고리</th>
+                            <th style="width: 180px;">작성일</th>
+                            <th class="text-end px-3" style="width: 200px;">액션</th>
+                        </tr>
+                        </thead>
+
+                        <tbody>
+                        <tr th:each="post : ${posts}">
+                            <td class="px-3" th:text="${post.postId}">1</td>
+
+                            <td>
+                                <a class="text-decoration-none"
+                                   th:href="@{/posts/{id}(id=${post.postId})}"
+                                   th:text="${post.title}"
+                                   data-testid="post-title-link">
+                                    제목
+                                </a>
+                            </td>
+
+                            <td th:text="${post.user}">닉</td>
+                            <td th:text="${post.category}">카테고리</td>
+                            <td th:text="${post.createdAt}">시간</td>
+
+                            <td class="text-end px-3">
+                                <a class="btn btn-sm btn-outline-secondary"
+                                   th:href="@{/posts/{id}/edit(id=${post.postId})}">수정</a>
+
+                                <form class="d-inline"
+                                      th:action="@{/posts/{id}/delete(id=${post.postId})}"
+                                      method="post"
+                                      onsubmit="return confirm('정말 삭제할까요?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
+                                </form>
+                            </td>
+                        </tr>
+
+                        <tr th:if="${#lists.isEmpty(posts)}">
+                            <td colspan="6" class="text-center py-4 text-muted">게시글이 없습니다.</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- =========================================================
+             ✅ 내 북마크 탭 (JS로 API 호출해서 렌더링)
+           ========================================================= -->
+        <div class="tab-pane fade" id="pane-bookmarks" role="tabpanel" aria-labelledby="tab-bookmarks">
+
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <h2 class="h5 mb-0"><i class="bi bi-bookmarks text-warning me-1"></i> 내 북마크</h2>
+                            <p class="text-muted small mb-0">북마크한 게시글을 여기서 확인합니다.</p>
+                        </div>
+
+                        <button id="reloadBookmarksBtn" type="button" class="btn btn-sm btn-outline-secondary">
+                            새로고침
+                        </button>
+                    </div>
+
+                    <!-- 알림 -->
+                    <div id="bookmarkAlert" class="alert d-none" role="alert"></div>
+
+                    <!-- 북마크 목록 -->
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                            <tr>
+                                <th style="width: 90px;">ID</th>
+                                <th>제목</th>
+                                <th style="width: 140px;">작성자</th>
+                                <th style="width: 160px;">카테고리</th>
+                                <th style="width: 180px;">작성일</th>
+                                <th class="text-end" style="width: 180px;">액션</th>
+                            </tr>
+                            </thead>
+                            <tbody id="bookmarkTbody">
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">북마크를 불러오는 중...</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    const tabBookmarksBtn = document.getElementById('tab-bookmarks');
+    const reloadBookmarksBtn = document.getElementById('reloadBookmarksBtn');
+    const bookmarkTbody = document.getElementById('bookmarkTbody');
+    const bookmarkAlert = document.getElementById('bookmarkAlert');
+
+    function showBookmarkAlert(type, message) {
+      bookmarkAlert.classList.remove('d-none', 'alert-success', 'alert-danger');
+      bookmarkAlert.classList.add(type === 'success' ? 'alert-success' : 'alert-danger');
+      bookmarkAlert.textContent = message;
+    }
+
+    async function apiFetch(url, options = {}) {
+      const headers = options.headers ? options.headers : {};
+      headers['X-Requested-With'] = 'XMLHttpRequest';
+      return fetch(url, { credentials: 'same-origin', ...options, headers });
+    }
+
+    function formatDate(dt) {
+      if (!dt) return '';
+      return String(dt).replace('T', ' ').slice(0, 16);
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    // ✅ 북마크 목록 불러오기: GET /api/bookmarks
+    // 반환 타입은 네 service가 주는 PostResponse 리스트라고 가정
+    async function loadBookmarks() {
+      bookmarkTbody.innerHTML = `
+        <tr><td colspan="6" class="text-center text-muted py-4">북마크를 불러오는 중...</td></tr>
+      `;
+
+      const res = await apiFetch('/api/bookmarks');
+      if (!res.ok) {
+        const t = await res.text();
+        showBookmarkAlert('error', '북마크 목록 조회 실패: ' + (t || res.status));
+        bookmarkTbody.innerHTML = `
+          <tr><td colspan="6" class="text-center text-muted py-4">불러오지 못했습니다.</td></tr>
+        `;
+        return;
+      }
+
+      const items = await res.json();
+
+      if (!Array.isArray(items) || items.length === 0) {
+        bookmarkTbody.innerHTML = `
+          <tr><td colspan="6" class="text-center text-muted py-4">북마크가 없습니다.</td></tr>
+        `;
+        return;
+      }
+
+      bookmarkTbody.innerHTML = items.map(p => `
+        <tr>
+          <td>${escapeHtml(p.postId)}</td>
+          <td>
+            <a class="text-decoration-none" href="/posts/${p.postId}">
+              ${escapeHtml(p.title ?? '')}
+            </a>
+          </td>
+          <td>${escapeHtml(p.user ?? '')}</td>
+          <td>${escapeHtml(p.category ?? '')}</td>
+          <td>${escapeHtml(formatDate(p.createdAt))}</td>
+          <td class="text-end">
+            <a class="btn btn-sm btn-outline-primary" href="/posts/${p.postId}">
+              보기
+            </a>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    // ✅ 탭 클릭 시 자동 로딩
+    tabBookmarksBtn.addEventListener('shown.bs.tab', () => {
+      loadBookmarks();
+    });
+
+    // ✅ 새로고침 버튼
+    reloadBookmarksBtn.addEventListener('click', loadBookmarks);
+</script>
+</body>
+</html>

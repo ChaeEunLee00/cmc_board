@@ -2,10 +2,10 @@ package com.cmc.board;
 
 import com.cmc.board.common.exception.BusinessLogicException;
 import com.cmc.board.common.exception.ExceptionCode;
-import com.cmc.board.user.User;
-import com.cmc.board.user.UserRepository;
-import com.cmc.board.user.UserRequest;
-import com.cmc.board.user.UserServiceImpl;
+import com.cmc.board.user.domain.User;
+import com.cmc.board.user.repository.UserRepository;
+import com.cmc.board.user.dto.UserRequest;
+import com.cmc.board.user.service.UserServiceImpl;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;

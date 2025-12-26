@@ -1,12 +1,16 @@
 package com.cmc.board;
 
-import com.cmc.board.comment.*;
+import com.cmc.board.comment.domain.Comment;
+import com.cmc.board.comment.dto.CommentRequest;
+import com.cmc.board.comment.dto.CommentResponse;
+import com.cmc.board.comment.repository.CommentRepository;
+import com.cmc.board.comment.service.CommentService;
 import com.cmc.board.common.exception.BusinessLogicException;
 import com.cmc.board.common.exception.ExceptionCode;
-import com.cmc.board.post.Post;
-import com.cmc.board.post.PostRepository;
-import com.cmc.board.user.User;
-import com.cmc.board.user.UserRepository;
+import com.cmc.board.post.domain.Post;
+import com.cmc.board.post.repository.PostRepository;
+import com.cmc.board.user.domain.User;
+import com.cmc.board.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

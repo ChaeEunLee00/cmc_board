@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>북마크</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-light">
+<div class="container py-5" style="max-width: 900px;">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="h4 mb-1">북마크한 게시글</h1>
+            <p class="text-muted small mb-0">내가 북마크한 게시글 목록입니다.</p>
+        </div>
+
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary" th:href="@{/posts}">
+                <i class="bi bi-list"></i> 글 목록
+            </a>
+        </div>
+    </div>
+
+    <div id="alertBox" class="alert d-none" role="alert"></div>
+
+    <!-- 목록 -->
+    <div id="bookmarkList" class="d-grid gap-3"></div>
+
+    <div id="emptyBox" class="text-muted d-none">북마크한 글이 없습니다.</div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    const bookmarkList = document.getElementById('bookmarkList');
+    const emptyBox = document.getElementById('emptyBox');
+    const alertBox = document.getElementById('alertBox');
+
+    function showAlert(type, msg) {
+      alertBox.classList.remove('d-none', 'alert-success', 'alert-danger');
+      alertBox.classList.add(type === 'success' ? 'alert-success' : 'alert-danger');
+      alertBox.textContent = msg;
+    }
+
+    async function apiFetch(url, options = {}) {
+      return fetch(url, { credentials: 'same-origin', ...options });
+    }
+
+    // ✅ GET /bookmarks (현재 네 API)
+    async function loadBookmarks() {
+      bookmarkList.innerHTML = '';
+      emptyBox.classList.add('d-none');
+
+      const res = await apiFetch('/bookmarks');
+      if (!res.ok) {
+        if (res.status === 401) showAlert('error', '로그인이 필요합니다.');
+        else showAlert('error', '북마크 목록을 불러오지 못했습니다.');
+        return;
+      }
+
+      const data = await res.json();
+
+      if (!Array.isArray(data) || data.length === 0) {
+        emptyBox.classList.remove('d-none');
+        return;
+      }
+
+      data.forEach(p => bookmarkList.appendChild(renderPostCard(p)));
+    }
+
+    // ⚠️ 여기 필드명은 bookmarkService.findBookmarks()가 돌려주는 DTO에 따라 달라.
+    // 일단 PostResponse랑 유사하다고 가정:
+    // postId, title, user, category, createdAt
+    function renderPostCard(p) {
+      const postId = p.postId ?? p.id;
+      const title = p.title ?? '';
+      const user = p.user ?? '';
+      const category = p.category ?? '';
+      const createdAt = p.createdAt ?? '';
+
+      const div = document.createElement('div');
+      div.className = 'card shadow-sm';
+
+      div.innerHTML = `
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <div class="fw-semibold">${escapeHtml(title)}</div>
+              <div class="text-muted small mt-1">
+                ${escapeHtml(category)} · ${escapeHtml(user)} · ${escapeHtml(String(createdAt)).replace('T',' ').slice(0,16)}
+              </div>
+            </div>
+            <a class="btn btn-sm btn-outline-primary" href="/posts/${postId}">
+              보기
+            </a>
+          </div>
+        </div>
+      `;
+      return div;
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    loadBookmarks();
+</script>
+</body>
+</html>

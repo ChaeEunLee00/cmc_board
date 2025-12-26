@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${formTitle}">게시글</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-light">
+<div class="container py-5" style="max-width: 900px;">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="h4 mb-0" th:text="${formTitle}">게시글 작성</h1>
+            <p class="text-muted small mb-0" th:if="${currentCategoryName}">
+                현재 카테고리: <span th:text="${currentCategoryName}">자유</span>
+            </p>
+        </div>
+        <a class="btn btn-sm btn-outline-secondary" th:href="@{/posts}">
+            <i class="bi bi-arrow-left"></i> 목록
+        </a>
+    </div>
+
+    <!-- ✅ 카테고리 추가/실패 메시지 영역 (JS가 채움) -->
+    <div id="categoryAlert" class="alert d-none" role="alert"></div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-4">
+
+            <form th:action="${formAction}" th:object="${postRequest}" method="post">
+
+                <div class="mb-3">
+                    <label class="form-label">제목</label>
+                    <input type="text" class="form-control" th:field="*{title}" required>
+                    <div class="text-danger small mt-1" th:if="${#fields.hasErrors('title')}" th:errors="*{title}">에러</div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">내용</label>
+                    <textarea class="form-control" rows="10" th:field="*{content}" required></textarea>
+                    <div class="text-danger small mt-1" th:if="${#fields.hasErrors('content')}" th:errors="*{content}">에러</div>
+                </div>
+
+                <!-- ✅ 카테고리 선택 + 추가 -->
+                <div class="mb-3">
+                    <label class="form-label">카테고리</label>
+
+                    <!-- select는 서버가 내려준 categories로 기본 렌더링 -->
+                    <select id="categorySelect" class="form-select" th:field="*{category}" required>
+                        <option value="" disabled selected>카테고리를 선택하세요</option>
+                        <option th:each="c : ${categories}"
+                                th:value="${c.id}"
+                                th:text="${c.name}">
+                            카테고리
+                        </option>
+                    </select>
+
+                    <div class="text-danger small mt-1" th:if="${#fields.hasErrors('category')}" th:errors="*{category}">에러</div>
+
+                    <!-- ✅ 카테고리 추가 UI -->
+                    <div class="mt-2">
+                        <div class="input-group">
+                            <input id="newCategoryInput"
+                                   type="text"
+                                   class="form-control"
+                                   placeholder="새 카테고리 이름 (예: 자유)"
+                                   aria-label="새 카테고리">
+                            <button id="addCategoryBtn" type="button" class="btn btn-outline-primary">
+                                <i class="bi bi-plus-lg"></i> 추가
+                            </button>
+                        </div>
+                        <div class="form-text">추가하면 목록이 즉시 갱신되고, 방금 추가한 카테고리가 자동 선택됩니다.</div>
+                    </div>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary">저장</button>
+                    <a class="btn btn-outline-secondary" th:href="@{/posts}">취소</a>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    const categorySelect = document.getElementById('categorySelect');
+    const newCategoryInput = document.getElementById('newCategoryInput');
+    const addCategoryBtn = document.getElementById('addCategoryBtn');
+    const categoryAlert = document.getElementById('categoryAlert');
+
+    function showAlert(type, message) {
+      categoryAlert.classList.remove('d-none', 'alert-success', 'alert-danger');
+      categoryAlert.classList.add(type === 'success' ? 'alert-success' : 'alert-danger');
+      categoryAlert.textContent = message;
+    }
+
+    // ✅ 서버 응답 DTO가 (id or categoryId) 둘 중 뭐든 대응
+    function normalizeCategory(c) {
+      const id = c.categoryId ?? c.id;
+      const name = c.name;
+      return { id, name };
+    }
+
+    async function reloadCategoriesAndSelectByName(selectName) {
+      const res = await fetch('/api/categories', { credentials: 'same-origin' });
+      if (!res.ok) throw new Error('카테고리 목록 조회 실패');
+
+      const raw = await res.json();
+      const list = (Array.isArray(raw) ? raw : []).map(normalizeCategory).filter(x => x.id != null && x.name);
+
+      // 기존 선택값 기억
+      const prevValue = categorySelect.value;
+
+      // 옵션 초기화 (placeholder 유지)
+      categorySelect.querySelectorAll('option:not([disabled])').forEach(o => o.remove());
+
+      // 옵션 다시 생성
+      list.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = String(c.id);
+        opt.textContent = c.name;
+        categorySelect.appendChild(opt);
+      });
+
+      // 새로 추가한 카테고리 자동 선택 (없으면 이전 선택 유지)
+      const found = list.find(c => c.name === selectName);
+      if (found) {
+        categorySelect.value = String(found.id);
+      } else if (prevValue) {
+        categorySelect.value = prevValue;
+      }
+    }
+
+    addCategoryBtn.addEventListener('click', async () => {
+      const name = newCategoryInput.value.trim();
+      if (!name) {
+        showAlert('error', '카테고리 이름을 입력해 주세요.');
+        return;
+      }
+
+      addCategoryBtn.disabled = true;
+
+      try {
+        const res = await fetch('/api/categories', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ name })
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text || '카테고리 생성 실패');
+        }
+
+        // 성공: 목록 갱신 후 방금 추가한 카테고리 선택
+        await reloadCategoriesAndSelectByName(name);
+
+        newCategoryInput.value = '';
+        showAlert('success', '카테고리가 추가되었습니다.');
+      } catch (e) {
+        showAlert('error', '카테고리 추가 실패: ' + e.message);
+      } finally {
+        addCategoryBtn.disabled = false;
+      }
+    });
+</script>
+</body>
+</html>

@@ -1,12 +1,12 @@
 package com.cmc.board;
 
-import com.cmc.board.category.Category;
-import com.cmc.board.category.CategoryRepository;
-import com.cmc.board.category.CategoryRequest;
-import com.cmc.board.category.CategoryService;
+import com.cmc.board.category.domain.Category;
+import com.cmc.board.category.repository.CategoryRepository;
+import com.cmc.board.category.dto.CategoryRequest;
+import com.cmc.board.category.service.CategoryService;
 import com.cmc.board.common.exception.BusinessLogicException;
 import com.cmc.board.common.exception.ExceptionCode;
-import com.cmc.board.post.PostRepository;
+import com.cmc.board.post.repository.PostRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;

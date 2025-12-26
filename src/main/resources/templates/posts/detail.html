@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>게시글 상세</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-light">
+<div class="container py-5" style="max-width: 900px;">
+
+    <div class="mb-3">
+        <a class="btn btn-sm btn-outline-secondary" th:href="@{/posts}">
+            <i class="bi bi-arrow-left"></i> 목록
+        </a>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body p-4">
+
+            <h1 class="h4 mb-2" th:text="${post.title}">제목</h1>
+
+            <div class="text-muted small mb-3">
+                ID: <span th:text="${post.postId}">1</span>
+                · 작성자: <span th:text="${post.user}">닉</span>
+                · 카테고리: <span th:text="${post.category}">카테고리</span>
+                <br>
+                작성일: <span id="postCreatedAt" th:text="${post.createdAt}">createdAt</span>
+
+                <span th:if="${post.updatedAt != null}">
+          · 수정일: <span id="postUpdatedAt" th:text="${post.updatedAt}">updatedAt</span>
+        </span>
+            </div>
+
+            <div class="border rounded p-3 bg-white">
+                <p class="mb-0" th:text="${post.content}">내용</p>
+            </div>
+
+            <div class="d-flex flex-wrap gap-2 mt-4">
+                <a class="btn btn-outline-primary" th:href="@{/posts/{id}/edit(id=${post.postId})}">
+                    <i class="bi bi-pencil-square"></i> 수정
+                </a>
+
+                <form th:action="@{/posts/{id}/delete(id=${post.postId})}"
+                      method="post"
+                      onsubmit="return confirm('정말 삭제할까요?');">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash"></i> 삭제
+                    </button>
+                </form>
+
+                <button id="bookmarkBtn" type="button" class="btn btn-outline-warning">
+                    <i id="bookmarkIcon" class="bi bi-bookmark"></i>
+                    <span id="bookmarkText">북마크</span>
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-4">
+
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h2 class="h5 mb-0">
+                    <i class="bi bi-chat-dots text-primary me-1"></i> 댓글
+                </h2>
+            </div>
+
+            <div id="alertBox" class="alert d-none" role="alert"></div>
+
+            <form id="newCommentForm" class="mb-3">
+                <div class="mb-2">
+          <textarea id="newCommentContent"
+                    class="form-control"
+                    rows="3"
+                    placeholder="댓글을 입력하세요"
+                    data-testid="comment-input"
+                    required></textarea>
+                </div>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary" data-testid="comment-submit">댓글 등록</button>
+                </div>
+            </form>
+
+            <hr>
+
+            <div id="commentList" class="d-grid gap-3" data-testid="comment-list"></div>
+
+        </div>
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script th:inline="javascript">
+    const postId = [[${post.postId}]];
+</script>
+
+<script>
+    const commentList = document.getElementById('commentList');
+    const newCommentForm = document.getElementById('newCommentForm');
+    const newCommentContent = document.getElementById('newCommentContent');
+
+    const bookmarkBtn = document.getElementById('bookmarkBtn');
+    const bookmarkIcon = document.getElementById('bookmarkIcon');
+    const bookmarkText = document.getElementById('bookmarkText');
+
+    const alertBox = document.getElementById('alertBox');
+    const postCreatedAtEl = document.getElementById('postCreatedAt');
+    const postUpdatedAtEl = document.getElementById('postUpdatedAt');
+
+    function showAlert(type, message) {
+      alertBox.classList.remove('d-none', 'alert-success', 'alert-danger');
+      alertBox.classList.add(type === 'success' ? 'alert-success' : 'alert-danger');
+      alertBox.textContent = message;
+    }
+
+    async function apiFetch(url, options = {}) {
+      const headers = options.headers ? options.headers : {};
+      headers['X-Requested-With'] = 'XMLHttpRequest';
+      return fetch(url, { credentials: 'same-origin', ...options, headers });
+    }
+
+    function formatDatePretty(dt) {
+      if (!dt) return '';
+      const s = String(dt);
+      const yyyy = s.slice(0, 4);
+      const mm = s.slice(5, 7);
+      const dd = s.slice(8, 10);
+      const hh = s.slice(11, 13);
+      const mi = s.slice(14, 16);
+      if (!yyyy || !mm || !dd || !hh || !mi) return s;
+      return `${yyyy}.${mm}.${dd} ${hh}:${mi}`;
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    async function loadComments() {
+      commentList.innerHTML = '';
+
+      const res = await apiFetch(`/api/posts/${postId}/comments`);
+      if (!res.ok) {
+        const text = await res.text();
+        showAlert('error', '댓글 목록 조회 실패: ' + (text || res.status));
+        return;
+      }
+
+      const comments = await res.json();
+      if (!Array.isArray(comments) || comments.length === 0) {
+        commentList.innerHTML = `<div class="text-muted">댓글이 없습니다.</div>`;
+        return;
+      }
+
+      comments.forEach(c => commentList.appendChild(renderCommentItem(c, 0)));
+    }
+
+    function renderCommentItem(c, level) {
+      const commentId = c.commentId;
+      const content = c.content ?? '';
+      const writer = c.user ?? '익명';
+      const createdAt = formatDatePretty(c.createdAt);
+      const updatedAt = formatDatePretty(c.updatedAt);
+      const childCount = c.childCount ?? 0;
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'border rounded p-3 bg-white';
+      wrapper.style.marginLeft = level === 0 ? '0px' : '24px';
+      wrapper.dataset.commentId = commentId;
+
+      wrapper.innerHTML = `
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <div class="fw-semibold">${escapeHtml(writer)}</div>
+            <div class="text-muted small">
+              ${escapeHtml(createdAt)}
+              ${updatedAt ? `<span class="ms-1">(수정: ${escapeHtml(updatedAt)})</span>` : ''}
+            </div>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-secondary"
+                    data-action="toggle-replies"
+                    data-comment-id="${commentId}"
+                    data-testid="toggle-replies-${commentId}"
+                    ${childCount === 0 ? 'disabled' : ''}>
+              대댓글 ${childCount > 0 ? '(' + childCount + ')' : ''} 보기
+            </button>
+
+            <button class="btn btn-sm btn-outline-primary"
+                    data-action="start-edit"
+                    data-comment-id="${commentId}">
+              수정
+            </button>
+
+            <button class="btn btn-sm btn-outline-danger"
+                    data-action="delete"
+                    data-comment-id="${commentId}">
+              삭제
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-2" data-role="content-text">${escapeHtml(content)}</div>
+
+        <div class="mt-2 d-none" data-role="edit-box">
+          <textarea class="form-control mb-2" rows="2" data-role="edit-input">${escapeHtml(content)}</textarea>
+          <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-primary"
+                    data-action="submit-edit"
+                    data-comment-id="${commentId}">
+              저장
+            </button>
+            <button class="btn btn-sm btn-outline-secondary"
+                    data-action="cancel-edit"
+                    data-comment-id="${commentId}">
+              취소
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-3">
+          <div class="input-group">
+            <input type="text"
+                   class="form-control"
+                   placeholder="대댓글을 입력하세요"
+                   data-role="reply-input"
+                   data-testid="reply-input-${commentId}">
+            <button class="btn btn-outline-primary"
+                    type="button"
+                    data-action="create-reply"
+                    data-comment-id="${commentId}"
+                    data-testid="reply-submit-${commentId}">
+              대댓글 등록
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-3 d-none" data-role="replies"></div>
+      `;
+
+      return wrapper;
+    }
+
+    // ✅ 여기 핵심 수정: 대댓글(parentId != null) 이면 postId는 null로 보냄
+    async function createComment({ content, parentId = null }) {
+      const pid = (parentId === null || parentId === undefined || parentId === '') ? null : Number(parentId);
+
+      const body = {
+        content: content,
+        postId: pid ? null : Number(postId),   // ✅ 대댓글이면 null
+        parentId: pid
+      };
+
+      const res = await apiFetch('/api/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        showAlert('error', '댓글 등록 실패: ' + (text || res.status));
+        return false;
+      }
+
+      showAlert('success', '댓글이 등록되었습니다.');
+      return true;
+    }
+
+    async function loadReplies(commentId, repliesBox) {
+      const res = await apiFetch(`/api/comments/${commentId}`);
+      if (!res.ok) {
+        const text = await res.text();
+        showAlert('error', '대댓글 조회 실패: ' + (text || res.status));
+        return;
+      }
+
+      const replies = await res.json();
+      repliesBox.innerHTML = '';
+
+      if (!Array.isArray(replies) || replies.length === 0) {
+        repliesBox.innerHTML = `<div class="text-muted small">대댓글이 없습니다.</div>`;
+        return;
+      }
+
+      replies.forEach(r => repliesBox.appendChild(renderCommentItem(r, 1)));
+    }
+
+    async function updateComment(commentId, content) {
+      const body = { content, postId: Number(postId), parentId: null };
+
+      const res = await apiFetch(`/api/comments/${commentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        showAlert('error', '댓글 수정 실패: ' + (text || res.status));
+        return false;
+      }
+
+      showAlert('success', '댓글이 수정되었습니다.');
+      return true;
+    }
+
+    async function deleteComment(commentId) {
+      const res = await apiFetch(`/api/comments/${commentId}`, { method: 'DELETE' });
+
+      if (!res.ok) {
+        const text = await res.text();
+        showAlert('error', '댓글 삭제 실패: ' + (text || res.status));
+        return false;
+      }
+
+      showAlert('success', '댓글이 삭제되었습니다.');
+      return true;
+    }
+
+    newCommentForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const content = newCommentContent.value.trim();
+      if (!content) {
+        showAlert('error', '댓글 내용을 입력해 주세요.');
+        return;
+      }
+
+      const ok = await createComment({ content });
+      if (ok) {
+        newCommentContent.value = '';
+        await loadComments();
+      }
+    });
+
+    // ✅ 여기 핵심 수정: 카드 찾는 걸 div[data-comment-id] 로 강제
+    commentList.addEventListener('click', async (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+
+      const action = btn.dataset.action;
+      const commentId = btn.dataset.commentId;
+      if (!action || !commentId) return;
+
+      // 🔥 버튼이 아니라 "댓글 카드 div"를 잡아야 함
+      const card = btn.closest('div[data-comment-id]');
+      if (!card) return;
+
+      if (action === 'start-edit') {
+        card.querySelector('[data-role="content-text"]').classList.add('d-none');
+        card.querySelector('[data-role="edit-box"]').classList.remove('d-none');
+        return;
+      }
+
+      if (action === 'cancel-edit') {
+        card.querySelector('[data-role="edit-box"]').classList.add('d-none');
+        card.querySelector('[data-role="content-text"]').classList.remove('d-none');
+        return;
+      }
+
+      if (action === 'submit-edit') {
+        const input = card.querySelector('[data-role="edit-input"]');
+        const newText = input.value.trim();
+        if (!newText) {
+          showAlert('error', '내용을 입력해 주세요.');
+          return;
+        }
+        const ok = await updateComment(commentId, newText);
+        if (ok) await loadComments();
+        return;
+      }
+
+      if (action === 'delete') {
+        if (!confirm('정말 삭제할까요?')) return;
+        const ok = await deleteComment(commentId);
+        if (ok) await loadComments();
+        return;
+      }
+
+      if (action === 'create-reply') {
+        const replyInput = card.querySelector('[data-role="reply-input"]');
+        if (!replyInput) {
+          showAlert('error', '대댓글 입력창을 찾지 못했습니다. (DOM 선택자 확인 필요)');
+          return;
+        }
+
+        const replyText = replyInput.value.trim();
+        if (!replyText) {
+          showAlert('error', '대댓글 내용을 입력해 주세요.');
+          return;
+        }
+
+        const ok = await createComment({
+          content: replyText,
+          parentId: commentId
+        });
+
+        if (ok) {
+          replyInput.value = '';
+          await loadComments();
+        }
+        return;
+      }
+
+      if (action === 'toggle-replies') {
+        const repliesBox = card.querySelector('[data-role="replies"]');
+        const isHidden = repliesBox.classList.contains('d-none');
+
+        if (isHidden) {
+          repliesBox.classList.remove('d-none');
+          await loadReplies(commentId, repliesBox);
+          btn.textContent = '대댓글 숨기기';
+        } else {
+          repliesBox.classList.add('d-none');
+          btn.textContent = '대댓글 보기';
+        }
+        return;
+      }
+    });
+
+    // 북마크(기존 그대로)
+    let isBookmarked = false;
+
+    function renderBookmarkUI() {
+      if (isBookmarked) {
+        bookmarkBtn.className = 'btn btn-warning';
+        bookmarkIcon.className = 'bi bi-bookmark-fill';
+        bookmarkText.textContent = '북마크됨';
+      } else {
+        bookmarkBtn.className = 'btn btn-outline-warning';
+        bookmarkIcon.className = 'bi bi-bookmark';
+        bookmarkText.textContent = '북마크';
+      }
+    }
+
+    async function loadBookmarkStatus() {
+      const res = await apiFetch(`/api/posts/${postId}/bookmarks/status`);
+      if (!res.ok) return;
+
+      const data = await res.json();
+      isBookmarked = !!data.bookmarked;
+      renderBookmarkUI();
+    }
+
+    async function createBookmark() {
+      const res = await apiFetch(`/api/posts/${postId}/bookmarks`, { method: 'POST' });
+      if (!res.ok) {
+        const t = await res.text();
+        showAlert('error', '북마크 실패: ' + (t || res.status));
+        return false;
+      }
+      showAlert('success', '북마크가 생성되었습니다.');
+      return true;
+    }
+
+    async function removeBookmark() {
+      const res = await apiFetch(`/api/posts/${postId}/bookmarks`, { method: 'DELETE' });
+      if (!res.ok) {
+        const t = await res.text();
+        showAlert('error', '북마크 제거 실패: ' + (t || res.status));
+        return false;
+      }
+      showAlert('success', '북마크가 제거되었습니다.');
+      return true;
+    }
+
+    bookmarkBtn.addEventListener('click', async () => {
+      bookmarkBtn.disabled = true;
+      try {
+        if (!isBookmarked) {
+          const ok = await createBookmark();
+          if (ok) isBookmarked = true;
+        } else {
+          const ok = await removeBookmark();
+          if (ok) isBookmarked = false;
+        }
+        renderBookmarkUI();
+      } finally {
+        bookmarkBtn.disabled = false;
+      }
+    });
+
+    if (postCreatedAtEl) postCreatedAtEl.textContent = formatDatePretty(postCreatedAtEl.textContent);
+    if (postUpdatedAtEl) postUpdatedAtEl.textContent = formatDatePretty(postUpdatedAtEl.textContent);
+
+    renderBookmarkUI();
+    loadBookmarkStatus();
+    loadComments();
+</script>
+</body>
+</html>
