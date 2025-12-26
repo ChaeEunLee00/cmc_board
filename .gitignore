@@ -5,6 +5,12 @@
 .idea/
 
 # Java/Spring 관련
-.gradle
+.gradle/
 build/
 out/
+
+# node
+e2e/node_modules/
+
+# playwright (결과물)
+test-results/
